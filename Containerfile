@@ -48,9 +48,14 @@ RUN dnf -y update && \
     # We need EPEL to find the espeak-ng runtime
     dnf install -y epel-release && \
     dnf install -y --setopt=install_weak_deps=False \
-        python3 \
         python3-pip \
+        python3-devel \
+        python3-setuptools \
+        gcc \
+        gcc-c++ \
+        make \
         espeak-ng \
+        redhat-rpm-config \
     && dnf clean all
 
 # 2. Install Python Dependencies from requirements.txt
@@ -61,7 +66,10 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # 3. ⚡️ THE FIX: Install Piper from the local wheelhouse
 # This is fast, robust, and requires no path guessing.
 COPY --from=builder /build/wheelhouse /tmp/wheelhouse
+RUN pip3 install --no-index --find-links=/tmp/wheelhouse numpy==1.26.4
+RUN pip3 install --no-index --find-links=/tmp/wheelhouse --force-reinstall piper-tts
 RUN pip3 install --no-index --find-links=/tmp/wheelhouse /tmp/wheelhouse/*.whl
+RUN pip3 install --force-reinstall numpy==1.26.4
 RUN rm -rf /tmp/wheelhouse
 
 # 4. Update the dynamic linker cache

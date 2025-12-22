@@ -1,10 +1,11 @@
+# This is a legacy container file format for Podman
+# For systemd integration, use the generated service file instead
 [Container]
-Image=vs-inf-prd-for-fr-501.hostics.fr/connectics/ia/tts_iv3us:latest
+Image=localhost/tts_iv3us:latest
 ContainerName=tts-piper-iv3us
 PublishPort=5051:5051
 Volume=/mnt/ia/piper/voices:/opt/voices:ro
 Volume=/tmp:/tmp:rw
-Volume=/mnt/ia/tts/main2.py:/app/main.py:ro
 Environment=VOICES_CONFIG_FILE_PATH=/opt/voices/voices_config.json
 
 [Service]
