@@ -120,12 +120,28 @@ class TTSRequest(BaseModel):
     text: str
     name: Optional[str] = None
     length_scale: Optional[float] = Field(
-        default=1.0, ge=0.5, le=2.0,
-        description="Speech speed. 1.0=normal, <1.0=faster, >1.0=slower."
+        default=1.0, ge=0.1, le=10.0,
+        description="Phoneme length (speed). 1.0=normal, <1.0=faster, >1.0=slower."
+    )
+    noise_scale: Optional[float] = Field(
+        default=0.67, ge=0.0, le=1.0,
+        description="Generator noise (voice quality/variation). Default is 0.67."
+    )
+    noise_w: Optional[float] = Field(
+        default=0.8, ge=0.0, le=1.0,
+        description="Phoneme width noise (voice stability). Default is 0.8."
     )
     amplification: Optional[float] = Field(
         default=1.0, ge=0.1, le=5.0,
         description="Linear amplification factor. 1.0=normal, <1.0=quieter, >1.0=louder."
+    )
+    speaker: Optional[int] = Field(
+        default=0, ge=0,
+        description="ID of speaker if the model supports multiple speakers."
+    )
+    sentence_silence: Optional[float] = Field(
+        default=0.2, ge=0.0,
+        description="Seconds of silence after each sentence. Default is 0.2."
     )
 
 class Voice(BaseModel):
@@ -166,8 +182,16 @@ async def generate_tts(request: TTSRequest):
         PIPER_EXECUTABLE_PATH, 
         "--model", model_full_path, 
         "--output_file", output_path_container, 
-        "--length_scale", str(request.length_scale)
+        "--length_scale", str(request.length_scale),
+        "--noise_scale", str(request.noise_scale),
+        "--noise_w", str(request.noise_w)
     ]
+    
+    if request.speaker is not None:
+        command.extend(["--speaker", str(request.speaker)])
+    
+    if request.sentence_silence is not None:
+        command.extend(["--sentence_silence", str(request.sentence_silence)])
 
     async with PIPER_SEMAPHORE:
         try:
