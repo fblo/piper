@@ -300,12 +300,28 @@ class TTSRequest(BaseModel):
     text: str
     name: Optional[str] = None
     length_scale: Optional[float] = Field(
-        default=1.0, ge=0.5, le=2.0,
-        description="Speech speed. 1.0=normal, <1.0=faster, >1.0=slower."
+        default=1.0, ge=0.1, le=10.0,
+        description="Phoneme length (speed). 1.0=normal, <1.0=faster, >1.0=slower."
+    )
+    noise_scale: Optional[float] = Field(
+        default=0.67, ge=0.0, le=1.0,
+        description="Generator noise (voice quality/variation). Default is 0.67."
+    )
+    noise_w: Optional[float] = Field(
+        default=0.8, ge=0.0, le=1.0,
+        description="Phoneme width noise (voice stability). Default is 0.8."
     )
     amplification: Optional[float] = Field(
         default=1.0, ge=0.1, le=5.0,
         description="Linear amplification factor. 1.0=normal, <1.0=quieter, >1.0=louder."
+    )
+    speaker: Optional[int] = Field(
+        default=0, ge=0,
+        description="ID of speaker if the model supports multiple speakers."
+    )
+    sentence_silence: Optional[float] = Field(
+        default=0.2, ge=0.0,
+        description="Seconds of silence after each sentence. Default is 0.2."
     )
 
 class Voice(BaseModel):
@@ -346,8 +362,16 @@ async def generate_tts(request: TTSRequest):
         PIPER_EXECUTABLE_PATH, 
         "--model", model_full_path, 
         "--output_file", output_path_container, 
-        "--length_scale", str(request.length_scale)
+        "--length_scale", str(request.length_scale),
+        "--noise_scale", str(request.noise_scale),
+        "--noise_w", str(request.noise_w)
     ]
+    
+    if request.speaker is not None:
+        command.extend(["--speaker", str(request.speaker)])
+    
+    if request.sentence_silence is not None:
+        command.extend(["--sentence_silence", str(request.sentence_silence)])
 
     async with PIPER_SEMAPHORE:
         try:
@@ -483,10 +507,114 @@ Le fichier `data.txt` pourrait contenir `text=Ceci est un test`.
 * **Mise à l'échelle horizontale**: Exécuter plusieurs instances de l'API et de Piper TTS derrière un équilibreur de charge.  
 * **Optimisation de Piper TTS**: Utiliser des modèles plus petits ou optimiser la configuration.
 
-## 8. Déploiement
+## 8. Options de configuration de Piper
+
+L'API expose plusieurs options de configuration de Piper TTS pour contrôler la qualité et les caractéristiques de la voix générée :
+
+* **length_scale**: Échelle de longueur des phonèmes (vitesse de la parole). Valeur par défaut : 1.0. Intervalle : 0.1-10.0.  
+  * 1.0 = vitesse normale
+  * < 1.0 = plus rapide
+  * \> 1.0 = plus lent
+
+* **noise_scale**: Bruit du générateur (qualité/variation de la voix). Valeur par défaut : 0.667. Intervalle : 0.0-1.0.
+  * Contrôle la variabilité et la richesse de la voix
+
+* **noise_w**: Bruit de largeur des phonèmes (stabilité de la voix). Valeur par défaut : 0.8. Intervalle : 0.0-1.0.
+  * Affecte la stabilité et la clarté de la voix
+
+* **speaker**: ID du locuteur (pour les modèles supportant plusieurs locuteurs). Valeur par défaut : 0.
+
+* **sentence_silence**: Secondes de silence après chaque phrase. Valeur par défaut : 0.2.
+
+## 9. Déploiement
 
 Pour déployer cette solution, vous pouvez utiliser Docker ou Podman avec le Containerfile fourni. Assurez-vous d'avoir un dossier contenant les modèles vocaux (fichiers .onnx) monté dans le conteneur au chemin `/opt/voices`.
 
-## 9. Conclusion
+## 10. Exemples d'utilisation
+
+### 10.1. Exemples d'appels API
+
+Voici quelques exemples d'appels à l'API TTS :
+
+#### Obtenir la liste des voix disponibles
+```bash
+curl -X GET "http://localhost:5051/tts/voices"
+```
+
+#### Obtenir les voix pour une langue spécifique
+```bash
+curl -X GET "http://localhost:5051/tts/voices?language=fr-FR"
+```
+
+#### Générer un fichier audio à partir de texte
+```bash
+curl -X POST "http://localhost:5051/tts/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Bonjour, ceci est un test de synthèse vocale.",
+    "name": "fr-fr",
+    "length_scale": 1.0,
+    "noise_scale": 0.667,
+    "noise_w": 0.8,
+    "amplification": 1.0
+  }' \
+  --output output.wav
+```
+
+#### Utilisation avec toutes les options
+```bash
+curl -X POST "http://localhost:5051/tts/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Texte à synthétiser avec toutes les options",
+    "name": "fr-fr",
+    "length_scale": 1.0,
+    "noise_scale": 0.6,
+    "noise_w": 0.7,
+    "amplification": 1.2,
+    "speaker": 0,
+    "sentence_silence": 0.3
+  }' \
+  --output resultat.wav
+```
+
+### 10.2. Exemples de déploiement
+
+#### Déploiement avec Podman
+```bash
+# Build de l'image
+podman build -t tts_iv3us .
+
+# Lancement du conteneur avec Podman
+podman run -d \
+  --name tts-piper-container \
+  -p 5051:5051 \
+  -v /mnt/ia/piper/voices:/opt/voices:ro \
+  -v /tmp:/tmp:rw \
+  tts_iv3us
+```
+
+#### Utilisation du fichier .container
+```bash
+# Copier le fichier .container dans le répertoire systemd
+sudo cp tts-piper-5051.container /etc/containers/systemd/
+
+# Démarrer le service
+systemctl --user start tts-piper-5051.container
+
+# Activer le service au démarrage
+systemctl --user enable tts-piper-5051.container
+```
+
+#### Vérification du service
+```bash
+# Vérifier l'état du service
+systemctl --user status tts-piper-5051.container
+
+# Voir les logs
+journalctl --user -u tts-piper-5051.container -f
+```
+
+## 11. Conclusion
 
 La mise en place de Piper TTS avec FastAPI offre une solution de synthèse vocale puissante et flexible. Les tests rigoureux, les benchmarks et les tests de montée en charge sont essentiels pour garantir la robustesse et la performance de l'API en production. Des optimisations continues basées sur ces analyses permettront d'offrir une expérience utilisateur optimale.
