@@ -552,7 +552,7 @@ curl -X POST "http://localhost:5051/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Bonjour, ceci est un test de synthèse vocale.",
-    "name": "fr-fr",
+    "name": "Tom",
     "length_scale": 1.0,
     "noise_scale": 0.667,
     "noise_w": 0.8,
@@ -567,7 +567,7 @@ curl -X POST "http://localhost:5051/tts/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "text": "Texte à synthétiser avec toutes les options",
-    "name": "fr-fr",
+    "name": "Tom",
     "length_scale": 1.0,
     "noise_scale": 0.6,
     "noise_w": 0.7,
