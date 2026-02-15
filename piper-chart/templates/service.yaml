@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: piper-service
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: piper
+spec:
+  type: {{ .Values.piper.service.type }}
+  {{- if eq .Values.piper.service.type "ClusterIP" }}
+  clusterIP: {{ .Values.piper.service.clusterIP | quote }}
+  {{- end }}
+  selector:
+    app: piper
+  ports:
+  - protocol: TCP
+    port: {{ .Values.piper.service.port }}
+    targetPort: {{ .Values.piper.service.targetPort }}
+</write_to_file>

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: piper-deployment
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: piper
+spec:
+  replicas: {{ .Values.piper.replicaCount }}
+  selector:
+    matchLabels:
+      app: piper
+  template:
+    metadata:
+      labels:
+        app: piper
+    spec:
+      containers:
+      - name: piper
+        image: "{{ .Values.piper.image.repository }}:{{ .Values.piper.image.tag }}"
+        imagePullPolicy: {{ .Values.piper.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.piper.service.targetPort }}
+        resources:
+          requests:
+            memory: {{ .Values.piper.resources.requests.memory | quote }}
+            cpu: {{ .Values.piper.resources.requests.cpu | quote }}
+          limits:
+            memory: {{ .Values.piper.resources.limits.memory | quote }}
+            cpu: {{ .Values.piper.resources.limits.cpu | quote }}
+        volumeMounts:
+        - name: voices-volume
+          mountPath: {{ .Values.piper.persistence.mountPath }}
+      volumes:
+      - name: voices-volume
+        {{- if .Values.piper.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: piper-voices-pvc
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+</write_to_file>
