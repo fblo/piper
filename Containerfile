@@ -22,9 +22,10 @@ RUN dnf -y update && \
 # 2. Build and Install espeak-ng from source
 # (This provides the -devel headers for the pip install)
 WORKDIR /build
-RUN git clone https://github.com/espeak-ng/espeak-ng.git
+RUN GIT_SSL_NO_VERIFY=true git clone --depth 1 --branch main https://forgejo.hostics.fr/fblo/espeak-ng
 WORKDIR /build/espeak-ng
-RUN ./autogen.sh && \
+RUN ls -la && \
+    ./autogen.sh && \
     ./configure --prefix=/usr && \
     make && \
     make install
@@ -79,10 +80,18 @@ RUN ldconfig
 ENV VOICE_DIR="/opt/voices"
 RUN mkdir -p ${VOICE_DIR}
 
+# 5.5. Create voices configuration file generator scripts
+COPY generate_voices_config.py /app/generate_voices_config.py
+COPY generate_voices_iv2us.py /app/generate_voices_iv2us.py
+
 # 6. Copy the application code and startup script
 COPY main2.py .
 COPY start2.sh .
 RUN chmod +x /app/start2.sh
+
+# 6.5. Generate voices configuration files on startup
+RUN python3 /app/generate_voices_config.py && \
+    python3 /app/generate_voices_iv2us.py
 
 # 7. Define the Execution Environment
 EXPOSE 5051
